@@ -21,6 +21,8 @@ public class Agencia {
     @JoinColumn(name = "endereco_id")
     private Endereco endereco;
 
+    @Column(name = "situacao_cadastral")
+    @Enumerated(EnumType.STRING)
     private SituacaoCadastral situacaoCadastral;
 
     public Agencia() {
