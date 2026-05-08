@@ -12,6 +12,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.List;
@@ -116,6 +117,12 @@ public class AgenciaService {
     }
 
     @WithTransaction
+    @CircuitBreaker(
+            delay = 6000,
+            failureRatio = 0.7,
+            successThreshold = 3,
+            requestVolumeThreshold = 10
+    )
     public Uni<Void> alterarSituacaoCadastral(String cnpj, SituacaoCadastral situacaoCadastral) {
         String formattedCnpj = cnpj.replaceAll(
                 "(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})",
