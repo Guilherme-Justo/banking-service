@@ -6,6 +6,8 @@ import br.com.alura.exceptions.AgenciaJaExisteException;
 import br.com.alura.repository.AgenciaRepository;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
+import io.smallrye.mutiny.Uni;
+import io.vertx.core.Vertx;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -28,16 +30,30 @@ public class AgenciaServiceTest {
     @Test
     public void naoDeveCadastrarQuandoJaExiste() {
         Agencia agencia = agencia();
-        Mockito.when(agenciaRepository.findByCnpj(Mockito.anyString())).thenReturn(agencia);
-        Assertions.assertThrows(AgenciaJaExisteException.class, () -> agenciaService.cadastrar(agencia));
-        Mockito.verify(agenciaRepository, Mockito.never()).persist(agencia);
+
+        Mockito.when(agenciaRepository.findByCnpj(Mockito.anyString()))
+                .thenReturn(Uni.createFrom().item(agencia));
+
+        Assertions.assertThrows(
+                AgenciaJaExisteException.class,
+                () -> agenciaService.cadastrar(agencia).await().indefinitely()
+        );
+
+        Mockito.verify(agenciaRepository, Mockito.never()).persist(Mockito.any(Agencia.class));
     }
 
     @Test
     public void deveCadastrarQuandoNaoExiste() {
         Agencia agencia = agencia();
-        Mockito.when(agenciaRepository.findByCnpj(Mockito.anyString())).thenReturn(null);
-        agenciaService.cadastrar(agencia);
+
+        Mockito.when(agenciaRepository.findByCnpj(Mockito.anyString()))
+                .thenReturn(Uni.createFrom().nullItem());
+
+        Mockito.when(agenciaRepository.persist(agencia))
+                .thenReturn(Uni.createFrom().item(agencia));
+
+        agenciaService.cadastrar(agencia).await().indefinitely();
+
         Mockito.verify(agenciaRepository).persist(agencia);
     }
 }

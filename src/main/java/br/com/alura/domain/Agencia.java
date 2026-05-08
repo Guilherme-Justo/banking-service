@@ -60,7 +60,7 @@ public class Agencia {
         return situacaoCadastral;
     }
 
-    public void setId(Long id) {}
+    public void setId(Long id) { this.id = id; }
 
     public void setCnpj(String cnpj) {
         this.cnpj = cnpj;

@@ -1,7 +1,10 @@
 package br.com.alura.controller;
 
 import br.com.alura.domain.Agencia;
+import br.com.alura.enums.SituacaoCadastral;
 import br.com.alura.service.AgenciaService;
+import io.smallrye.common.annotation.NonBlocking;
+import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.UriInfo;
@@ -19,40 +22,45 @@ public class AgenciaController {
     }
 
     @GET
-    public RestResponse<List<Agencia>> buscarTodos() {
-        return RestResponse.ok(this.agenciaService.buscarTodos());
+    public Uni<RestResponse<List<Agencia>>> buscarTodos() {
+        return this.agenciaService.buscarTodos().onItem().transform(RestResponse::ok);
     }
 
     @POST
-    public RestResponse<Void> cadastrar(Agencia agencia, @Context UriInfo uriInfo) {
-        this.agenciaService.cadastrar(agencia);
-        return RestResponse.created(uriInfo.getAbsolutePath());
+    @NonBlocking
+    public Uni<RestResponse<Void>> cadastrar(Agencia agencia, @Context UriInfo uriInfo) {
+        return this.agenciaService.cadastrar(agencia).replaceWith(RestResponse.created(uriInfo.getAbsolutePath()));
     }
 
     @GET()
     @Path("/id/{id}")
-    public RestResponse<Agencia> buscarPorId(Long id) {
-        Agencia agencia = this.agenciaService.buscarPorId(id);
-        return RestResponse.ok(agencia);
+    public Uni<RestResponse<Agencia>> buscarPorId(@PathParam("id") Long id) {
+        return this.agenciaService.buscarPorId(id).onItem().transform(RestResponse::ok);
     }
 
     @GET()
     @Path("/cnpj/{cnpj}")
-    public RestResponse<Agencia> buscarPorCnpj(String cnpj) {
-        Agencia agencia = this.agenciaService.buscarPorCnpj(cnpj);
-        return RestResponse.ok(agencia);
+    public Uni<RestResponse<Agencia>> buscarPorCnpj(@PathParam("cnpj") String cnpj) {
+        return this.agenciaService.buscarPorCnpj(cnpj).onItem().transform(RestResponse::ok);
     }
 
     @DELETE()
     @Path("/{id}")
-    public RestResponse<Void> deletar(Long id) {
-        this.agenciaService.deletar(id);
-        return RestResponse.noContent();
+    public Uni<RestResponse<Void>> deletar(@PathParam("id") Long id) {
+        return this.agenciaService.deletar(id).replaceWith(RestResponse::noContent);
     }
 
     @PUT
-    public RestResponse<Void> alterar(Agencia agencia) {
-        this.agenciaService.alterar(agencia);
-        return RestResponse.noContent();
+    public Uni<RestResponse<Void>> alterar(Agencia agencia) {
+        return this.agenciaService.alterar(agencia).replaceWith(RestResponse::noContent);
+    }
+
+    @PUT
+    @Path("/{cnpj}/{situacao}")
+    public Uni<RestResponse<Void>> alterarSituacaoCadastral(
+            @PathParam("cnpj") String cnpj,
+            @PathParam("situacao") SituacaoCadastral situacao
+    ) {
+        return this.agenciaService.alterarSituacaoCadastral(cnpj, situacao).replaceWith(RestResponse::noContent);
     }
 }
