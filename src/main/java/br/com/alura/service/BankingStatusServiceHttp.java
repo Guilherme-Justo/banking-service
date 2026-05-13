@@ -1,6 +1,5 @@
 package br.com.alura.service;
 
-import br.com.alura.domain.AgenciaStatus;
 import br.com.alura.enums.SituacaoCadastral;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.GET;

@@ -3,6 +3,8 @@ package br.com.alura.domain;
 import br.com.alura.enums.SituacaoCadastral;
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 public class Agencia {
 
@@ -24,6 +26,9 @@ public class Agencia {
     @Column(name = "situacao_cadastral")
     @Enumerated(EnumType.STRING)
     private SituacaoCadastral situacaoCadastral;
+
+    @Column(name = "data_atualizacao")
+    private LocalDateTime dataAtualizacao;
 
     public Agencia() {
     }
@@ -80,5 +85,13 @@ public class Agencia {
 
     public void setSituacaoCadastral(SituacaoCadastral situacaoCadastral) {
         this.situacaoCadastral = situacaoCadastral;
+    }
+
+    public LocalDateTime getDataAtualizacao() {
+        return dataAtualizacao;
+    }
+
+    public void setDataAtualizacao(LocalDateTime dataAtualizacao) {
+        this.dataAtualizacao = dataAtualizacao;
     }
 }

@@ -1,10 +1,12 @@
 package br.com.alura.service;
 
 import br.com.alura.domain.Agencia;
+import br.com.alura.dto.NovaSituacaoDTO;
 import br.com.alura.enums.SituacaoCadastral;
 import br.com.alura.exceptions.AgenciaInativaException;
 import br.com.alura.exceptions.AgenciaJaExisteException;
 import br.com.alura.exceptions.AgenciaNaoEncontradaException;
+import br.com.alura.producers.NovaSituacaoProducer;
 import br.com.alura.repository.AgenciaRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
@@ -12,6 +14,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
@@ -25,10 +28,12 @@ public class AgenciaService {
 
     private final AgenciaRepository agenciaRepository;
     private final MeterRegistry meterRegistry;
+    private final Event<NovaSituacaoDTO> event;
 
-    public AgenciaService(AgenciaRepository agenciaRepository, MeterRegistry meterRegistry) {
+    public AgenciaService(AgenciaRepository agenciaRepository, MeterRegistry meterRegistry, Event<NovaSituacaoDTO> event) {
         this.agenciaRepository = agenciaRepository;
         this.meterRegistry = meterRegistry;
+        this.event = event;
     }
 
     @WithSession
@@ -56,22 +61,28 @@ public class AgenciaService {
             meterRegistry.counter("agencia_nao_encontrada_counter").increment();
             return new AgenciaNaoEncontradaException();
         }).onItem().ifNotNull().transformToUni(agencia ->
-            bankingStatusServiceHttp.getAgenciaStatusPorId(id).onItem().transformToUni(situacaoCadastral -> {
-                if (SituacaoCadastral.INATIVO.equals(situacaoCadastral)) {
-                    Log.error("Agência com ID: " + id + " encontrada, mas está inativa.");
-                    meterRegistry.counter("agencia_inativa_counter").increment();
-                    return Uni.createFrom().failure(new AgenciaInativaException());
-                }
+                bankingStatusServiceHttp.getAgenciaStatusPorId(id).onItem().transformToUni(situacaoCadastral -> {
+                    if (SituacaoCadastral.INATIVO.equals(situacaoCadastral)) {
+                        Log.error("Agência com ID: " + id + " encontrada, mas está inativa.");
+                        meterRegistry.counter("agencia_inativa_counter").increment();
+                        return Uni.createFrom().failure(new AgenciaInativaException());
+                    }
 
-                Log.info("Agência com ID: " + id + " encontrada e ativa.");
-                meterRegistry.counter("agencia_encontrada_counter").increment();
+                    Log.info("Agência com ID: " + id + " encontrada e ativa.");
+                    meterRegistry.counter("agencia_encontrada_counter").increment();
 
-                return Uni.createFrom().item(agencia);
-            })
+                    return Uni.createFrom().item(agencia);
+                })
         );
     }
 
     @WithSession
+    @CircuitBreaker(
+            delay = 6000,
+            failureRatio = 0.4,
+            successThreshold = 3,
+            requestVolumeThreshold = 5
+    )
     public Uni<Agencia> buscarPorCnpj(String cnpj) {
         String formattedCnpj = cnpj.replaceAll(
                 "(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{2})",
@@ -131,7 +142,8 @@ public class AgenciaService {
         return agenciaRepository.findByCnpj(formattedCnpj)
                 .onItem().ifNull().failWith(AgenciaNaoEncontradaException::new)
                 .onItem().transformToUni(agencia ->
-                        bankingStatusServiceHttp.alterarSituacaoCadastral(cnpj, situacaoCadastral)
+                            bankingStatusServiceHttp.alterarSituacaoCadastral(cnpj, situacaoCadastral)
+                                    .invoke(() -> event.fire(new NovaSituacaoDTO(situacaoCadastral, cnpj)))
                 ).invoke(() -> {
                     Log.info("Situação cadastral da agência com CNPJ: " + formattedCnpj + " alterada para: " + situacaoCadastral);
                     meterRegistry.counter("agencia_situacao_cadastral_alterada_counter").increment();
